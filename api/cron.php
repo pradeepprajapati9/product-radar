@@ -21,6 +21,6 @@ api(function () {
     }
     $mode = in_array(param('mode'), ['amazon', 'suppliers'], true) ? param('mode') : '';
     // Start in the background so cron-job.org gets an answer at once
-    exec(sprintf('cd %s && nohup python3 -X utf8 bot/radar_bot.py %s > %s 2>&1 &', escapeshellarg(dirname(__DIR__)), $mode, escapeshellarg($log)));
+    exec(sprintf('cd %s && nohup python3 -u -X utf8 bot/radar_bot.py %s > %s 2>&1 &', escapeshellarg(dirname(__DIR__)), $mode, escapeshellarg($log)));
     return ['started' => true, 'message' => 'Bot started, takes about 8 minutes'];
 }, true);

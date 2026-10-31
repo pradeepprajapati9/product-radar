@@ -38,6 +38,9 @@ const VIEWS = {
 };
 
 let status = null;
+const NO_DATA = location.hostname === 'localhost'
+    ? 'No data yet. Run: python bot/radar_bot.py in the project folder, wait about 8 minutes, then refresh.'
+    : 'No data yet. The bot runs daily by cron-job.org, the first run fills this page in about 8 minutes.';
 let current = 'home';
 let layout = store('layout') || 'table';
 
@@ -106,7 +109,7 @@ async function loadHome() {
     const d = await api('overview.php');
     setBadges(d);
     if (!d.day) {
-        setInfo('No data yet. Run: python bot/radar_bot.py in the project folder, wait about 8 minutes, then refresh.');
+        setInfo(NO_DATA);
         return;
     }
     const k = d.kpi;
@@ -188,7 +191,7 @@ function renderPlan(p) {
 async function loadList() {
     const params = new URLSearchParams({ view: current, q: $('q').value, cat: $('cat').value, verdict: $('verdict').value, sort: $('sort').value });
     const data = await api('products.php?' + params);
-    setInfo(data.day ? VIEWS[current].info({ total: data.total, days: status.days }) : 'No data yet. Run: python bot/radar_bot.py, wait about 8 minutes, then refresh.');
+    setInfo(data.day ? VIEWS[current].info({ total: data.total, days: status.days }) : NO_DATA);
     document.querySelectorAll('[data-layout]').forEach((b) => b.classList.toggle('on', b.dataset.layout === layout));
     $('tableWrap').hidden = layout !== 'table';
     $('listCards').hidden = layout !== 'cards';
