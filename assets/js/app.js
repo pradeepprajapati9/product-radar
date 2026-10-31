@@ -518,8 +518,9 @@ loadStatus()
         show(location.hash.slice(1) || 'home');
         if (current !== 'home') api('overview.php').then(setBadges).catch(() => {});
     })
-    .catch(() => {
+    .catch((err) => {
         $('title').textContent = 'Cannot load data';
         $('lastSync').textContent = 'Not connected';
-        setInfo('Start Apache in XAMPP, then open http://localhost/pr/product-radar/');
+        const local = location.hostname === 'localhost' || location.protocol === 'file:';
+        setInfo(local && err instanceof TypeError ? 'Start Apache in XAMPP, then open http://localhost/pr/product-radar/' : 'Error: ' + err.message);
     });
