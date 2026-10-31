@@ -12,7 +12,7 @@ api(function () {
     $rows = array_values(array_filter($rows, function ($r) use ($view, $q, $cat, $verdict) {
         return match ($view) {
             'picks' => $r['verdict'] === 'pick',
-            'supplier' => $r['verdict'] === 'supplier' && $r['reviews'] <= settings()['max_reviews'],
+            'supplier' => $r['verdict'] === 'supplier',
             'rising' => $r['is_new'] || ($r['change'] ?? 0) >= 10,
             'watch' => $r['watched'],
             default => true,

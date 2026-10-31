@@ -37,14 +37,14 @@ function verdict(?float $price, ?float $buy, ?int $reviews, ?array $p): array
     if ($price < $s['min_price']) {
         return ['cheap', 'Under ₹' . $s['min_price'] . ', fixed costs eat the profit'];
     }
+    if ($reviews > $s['max_reviews']) {
+        return ['brand', 'Has ' . number_format((int) $reviews) . ' reviews, hard to beat'];
+    }
     if (!$buy) {
         return ['supplier', 'Price OK, add a buy price to check profit'];
     }
     if ($price / $buy < $s['min_multiple'] || $p['margin'] < $s['min_margin']) {
         return ['low', 'Profit too low (' . $p['margin'] . '%)'];
-    }
-    if ($reviews > $s['max_reviews']) {
-        return ['brand', 'Has ' . number_format((int) $reviews) . ' reviews, hard to beat'];
     }
     return ['pick', 'Good: ₹' . $p['profit'] . ' profit per piece (' . $p['margin'] . '%)'];
 }

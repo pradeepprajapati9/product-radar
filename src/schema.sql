@@ -55,3 +55,7 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 CREATE INDEX IF NOT EXISTS idx_ranks_day ON ranks(day);
 CREATE INDEX IF NOT EXISTS idx_products_cat ON products(category_id);
+CREATE TABLE IF NOT EXISTS plan_steps (
+    key TEXT PRIMARY KEY,
+    done_at TEXT NOT NULL
+);

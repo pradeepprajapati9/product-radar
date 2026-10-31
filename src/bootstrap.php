@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/profit.php';
 require_once __DIR__ . '/queries.php';
+require_once __DIR__ . '/plan.php';
 
 function db(): PDO
 {
