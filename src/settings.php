@@ -37,7 +37,7 @@ function save_settings(array $input): void
 {
     foreach (SETTING_DEFAULTS as $key => $_) {
         if (isset($input[$key]) && is_numeric($input[$key]) && $input[$key] >= 0) {
-            run_sql('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [$key, (string) $input[$key]]);
+            run_sql('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value', [$key, (string) $input[$key]]);
         }
     }
 }

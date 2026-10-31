@@ -5,6 +5,7 @@ Run:  python bot/radar_bot.py            (Amazon + due supplier prices)
       python bot/radar_bot.py suppliers  (only IndiaMART)
 """
 import json
+import os
 import random
 import re
 import sqlite3
@@ -39,17 +40,51 @@ def today():
     return datetime.now(IST).strftime("%Y-%m-%d")
 
 
+def env(key):
+    value = os.environ.get(key)
+    if value:
+        return value
+    path = ROOT / ".env"
+    for line in path.read_text(encoding="utf-8").splitlines() if path.exists() else []:
+        if "=" in line and not line.startswith("#"):
+            k, v = line.split("=", 1)
+            if k.strip() == key:
+                return v.strip()
+    return None
+
+
+class Database:
+    """SQLite on the PC, Postgres (Neon) when DATABASE_URL is set; queries use ? placeholders."""
+
+    def __init__(self):
+        url = env("DATABASE_URL")
+        schema = SCHEMA.read_text(encoding="utf-8")
+        self.pg = bool(url)
+        if self.pg:
+            import psycopg
+            self.conn = psycopg.connect(url)
+            self.conn.execute(schema.replace("INTEGER PRIMARY KEY", "SERIAL PRIMARY KEY"))
+        else:
+            DB_PATH.parent.mkdir(exist_ok=True)
+            self.conn = sqlite3.connect(DB_PATH, timeout=30)
+            self.conn.execute("PRAGMA journal_mode = WAL")
+            self.conn.executescript(schema)
+        self.conn.commit()
+
+    def execute(self, sql, args=()):
+        return self.conn.execute(sql.replace("?", "%s") if self.pg else sql, args)
+
+    def commit(self):
+        self.conn.commit()
+
+
 def connect():
-    DB_PATH.parent.mkdir(exist_ok=True)
-    db = sqlite3.connect(DB_PATH, timeout=30)
-    db.execute("PRAGMA journal_mode = WAL")
-    db.executescript(SCHEMA.read_text(encoding="utf-8"))
+    db = Database()
     seed = json.loads(SEED.read_text(encoding="utf-8"))
-    db.executemany(
-        "INSERT OR IGNORE INTO categories (node, parent, name) VALUES (?, ?, ?)",
-        [(f"{p}/{n}", p, name) for p, n, name in seed["categories"]],
-    )
-    db.executemany("INSERT OR IGNORE INTO keywords (keyword, slug) VALUES (?, ?)", seed["keywords"])
+    for p, n, name in seed["categories"]:
+        db.execute("INSERT INTO categories (node, parent, name) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", (f"{p}/{n}", p, name))
+    for keyword, slug in seed["keywords"]:
+        db.execute("INSERT INTO keywords (keyword, slug) VALUES (?, ?) ON CONFLICT DO NOTHING", (keyword, slug))
     db.commit()
     return db
 
@@ -120,7 +155,10 @@ def run_amazon(db, session):
                     (it["asin"], it["name"], it["image"], cat_id, day, day),
                 )
                 db.execute(
-                    "INSERT OR REPLACE INTO ranks VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    """INSERT INTO ranks (asin, category_id, day, rank, price, rating, reviews)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT (asin, category_id, day) DO UPDATE SET rank = excluded.rank,
+                       price = excluded.price, rating = excluded.rating, reviews = excluded.reviews""",
                     (it["asin"], cat_id, day, it["rank"], it["price"], it["rating"], it["reviews"]),
                 )
                 saved += 1
@@ -143,7 +181,7 @@ def run_suppliers(db, session):
     cutoff = (datetime.now(timezone.utc) - timedelta(days=SUPPLIER_EVERY_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
     due = db.execute(
         """SELECT slug FROM keywords WHERE checked_at IS NULL OR checked_at < ? OR status = 'blocked'
-           GROUP BY slug ORDER BY checked_at IS NOT NULL, checked_at LIMIT ?""",
+           GROUP BY slug ORDER BY MIN(COALESCE(checked_at, '')) LIMIT ?""",
         (cutoff, SUPPLIER_BATCH),
     ).fetchall()
     done = 0
@@ -174,8 +212,8 @@ def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "all"
     db = connect()
     run_id = db.execute(
-        "INSERT INTO runs (started_at, status) VALUES (?, 'running')", (now(),)
-    ).lastrowid
+        "INSERT INTO runs (started_at, status) VALUES (?, 'running') RETURNING id", (now(),)
+    ).fetchone()[0]
     db.commit()
     session, notes, status = requests.Session(), [], "ok"
     try:
@@ -184,6 +222,7 @@ def main():
         if mode in ("all", "suppliers"):
             notes.append(run_suppliers(db, session))
     except Exception as e:
+        db.conn.rollback()
         status = "error"
         notes.append(f"Error: {e}")
     db.execute(

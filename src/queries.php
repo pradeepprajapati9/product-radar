@@ -25,14 +25,19 @@ function product_rows(): array
         JOIN categories c ON c.id = p.category_id
         JOIN ranks r ON r.asin = p.asin AND r.category_id = p.category_id AND r.day = :day
         LEFT JOIN ranks o ON o.asin = p.asin AND o.category_id = p.category_id
-            AND o.day = (SELECT MIN(day) FROM ranks WHERE day >= date(:day, '-7 day'))
+            AND o.day = (SELECT MIN(day) FROM ranks WHERE day >= :week_ago)
         LEFT JOIN watch w ON w.asin = p.asin
-    ", ['day' => $day]);
+    ", ['day' => $day, 'week_ago' => date('Y-m-d', strtotime($day . ' -7 days'))]);
 
     $keywords = supplier_keywords();
     $firstDay = fetch_value('SELECT MIN(day) FROM ranks');
     foreach ($rows as &$row) {
+        // Postgres returns numbers as strings, so cast everything once here
+        $row['category_id'] = (int) $row['category_id'];
+        $row['rank'] = (int) $row['rank'];
+        $row['old_rank'] = $row['old_rank'] !== null ? (int) $row['old_rank'] : null;
         $row['price'] = $row['price'] !== null ? (float) $row['price'] : null;
+        $row['rating'] = $row['rating'] !== null ? (float) $row['rating'] : null;
         $row['reviews'] = $row['reviews'] !== null ? (int) $row['reviews'] : null;
         $row['watched'] = (bool) $row['watched'];
         $match = match_keyword($row['name'], $keywords);
@@ -52,7 +57,7 @@ function product_rows(): array
         $row['profit'] = $p['profit'] ?? null;
         $row['margin'] = $p['margin'] ?? null;
         [$row['verdict'], $row['reason']] = verdict($row['price'], $row['buy'], $row['reviews'], $p);
-        $row['change'] = $row['old_rank'] !== null && $row['old_day'] < $day ? (int) $row['old_rank'] - (int) $row['rank'] : null;
+        $row['change'] = $row['old_rank'] !== null && $row['old_day'] < $day ? $row['old_rank'] - $row['rank'] : null;
         $row['is_new'] = $row['first_seen'] === $day && $firstDay < $day;
         $row['url'] = 'https://www.amazon.in/dp/' . $row['asin'];
         unset($row['buy_price'], $row['old_day']);
