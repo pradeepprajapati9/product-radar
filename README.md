@@ -7,9 +7,9 @@ Open: http://localhost/pr/product-radar/
 ## Run the bot
 
 ```
-run_bot.bat              Amazon ranks + due IndiaMART prices (about 8 min)
-run_bot.bat amazon       only Amazon
-run_bot.bat suppliers    only IndiaMART
+python bot/radar_bot.py              Amazon ranks + due IndiaMART prices (about 8 min)
+python bot/radar_bot.py amazon       only Amazon
+python bot/radar_bot.py suppliers    only IndiaMART
 ```
 
 Windows Task Scheduler runs it daily (task name `ProductRadar`). Needs Python with `requests` and `beautifulsoup4`.
